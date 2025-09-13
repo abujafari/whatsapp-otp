@@ -171,6 +171,9 @@ The API includes comprehensive Swagger/OpenAPI documentation:
 - **Reverse proxy**: Optional Nginx configuration for production deployments
 - **Security**: Non-root user and security headers included
 - **Puppeteer optimization**: Uses system Chromium instead of downloading, avoiding 403 errors
+- **Auto-reconnection**: Automatically reconnects on disconnection with exponential backoff
+- **Error handling**: Comprehensive error handling and retry mechanisms
+- **Stability**: Enhanced Chrome arguments for better container stability
 
 ## Notes
 

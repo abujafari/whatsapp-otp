@@ -17,34 +17,29 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Initialize WhatsApp client
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ],
-        // Use system Chrome instead of downloading Chromium
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium'
-    }
+    // puppeteer: {
+    //     headless: true,
+    //     // Use system Chrome instead of downloading Chromium
+    //     // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium'
+    // }
 });
 
 let isClientReady = false;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 5;
+let reconnectTimeout;
 
 // WhatsApp client events
 client.on('qr', (qr) => {
     console.log('QR Code received, scan it with your WhatsApp app:');
     qrcode.generate(qr, { small: true });
+    reconnectAttempts = 0; // Reset reconnect attempts on QR
 });
 
 client.on('ready', () => {
     console.log('WhatsApp client is ready!');
     isClientReady = true;
+    reconnectAttempts = 0; // Reset reconnect attempts on ready
 });
 
 client.on('authenticated', () => {
@@ -53,12 +48,51 @@ client.on('authenticated', () => {
 
 client.on('auth_failure', (msg) => {
     console.error('Authentication failed:', msg);
+    isClientReady = false;
 });
 
 client.on('disconnected', (reason) => {
     console.log('WhatsApp client disconnected:', reason);
     isClientReady = false;
+
+    // Handle different disconnection reasons
+    if (reason === 'LOGOUT') {
+        console.log('User logged out. Please scan QR code again.');
+        reconnectAttempts = 0;
+    } else if (reason === 'NAVIGATION') {
+        console.log('Navigation error detected. Attempting to reconnect...');
+        attemptReconnect();
+    } else {
+        console.log('Unexpected disconnection. Attempting to reconnect...');
+        attemptReconnect();
+    }
 });
+
+// Reconnection logic
+const attemptReconnect = () => {
+    if (reconnectAttempts >= maxReconnectAttempts) {
+        console.error('Max reconnection attempts reached. Please restart the application.');
+        return;
+    }
+
+    reconnectAttempts++;
+    console.log(`Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`);
+
+    // Clear any existing timeout
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+    }
+
+    // Wait before attempting reconnection
+    reconnectTimeout = setTimeout(() => {
+        try {
+            client.initialize();
+        } catch (error) {
+            console.error('Reconnection failed:', error.message);
+            attemptReconnect();
+        }
+    }, 5000 * reconnectAttempts); // Exponential backoff
+};
 
 // Initialize WhatsApp client
 client.initialize();
@@ -210,8 +244,27 @@ app.post('/send-otp', async (req, res) => {
         // Create OTP message
         const message = `Your OTP code is: ${otp}\n\nThis code will expire in 5 minutes. Do not share this code with anyone.`;
 
-        // Send message
-        const result = await client.sendMessage(formattedNumber, message);
+        // Send message with retry logic
+        let result;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (retryCount < maxRetries) {
+            try {
+                result = await client.sendMessage(formattedNumber, message);
+                break; // Success, exit retry loop
+            } catch (error) {
+                retryCount++;
+                console.error(`Send message attempt ${retryCount} failed:`, error.message);
+
+                if (retryCount >= maxRetries) {
+                    throw error; // Re-throw if all retries failed
+                }
+
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            }
+        }
 
         res.json({
             success: true,
@@ -248,9 +301,33 @@ app.listen(PORT, () => {
     console.log(`Visit http://localhost:${PORT} to see the API status`);
 });
 
+// Error handling for unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't exit the process, just log the error
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Attempt to reconnect if it's a WhatsApp-related error
+    if (error.message.includes('Execution context was destroyed') ||
+        error.message.includes('Protocol error') ||
+        error.message.includes('Target closed')) {
+        console.log('Detected WhatsApp connection error. Attempting to reconnect...');
+        attemptReconnect();
+    }
+});
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
     console.log('\nShutting down gracefully...');
-    await client.destroy();
+    if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+    }
+    try {
+        await client.destroy();
+    } catch (error) {
+        console.error('Error during shutdown:', error.message);
+    }
     process.exit(0);
 });
