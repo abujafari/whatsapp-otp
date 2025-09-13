@@ -242,7 +242,7 @@ app.post('/send-otp', async (req, res) => {
         }
 
         // Create OTP message
-        const message = `Your OTP code is: ${otp}\n\nThis code will expire in 5 minutes. Do not share this code with anyone.`;
+        const message = `Your verification code: ${otp}\n\n Welcome to Riallet`;
 
         // Send message with retry logic
         let result;
