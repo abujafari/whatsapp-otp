@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  whatsapp-api:
+    build: .
+    container_name: whatsapp-otp-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # SOCKS5 Proxy Configuration (Optional)
+      # - SOCKS5_HOST=127.0.0.1
+      # - SOCKS5_PORT=1080
+      # - SOCKS5_USERNAME=your_username
+      # - SOCKS5_PASSWORD=your_password
+    volumes:
+      # Persist WhatsApp session data
+      - whatsapp-session:/app/.wwebjs_auth
+      # Optional: Mount custom config
+      # - ./config:/app/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - whatsapp-network
+
+  # Optional: Add a reverse proxy (nginx)
+  nginx:
+    image: nginx:alpine
+    container_name: whatsapp-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # Uncomment if using SSL certificates
+      # - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - whatsapp-api
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+    profiles:
+      - with-nginx
+
+volumes:
+  whatsapp-session:
+    driver: local
+
+networks:
+  whatsapp-network:
+    driver: bridge
