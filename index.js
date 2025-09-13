@@ -5,7 +5,7 @@ const swaggerUi = require('swagger-ui-express');
 const { generateSwaggerSpec } = require('./config/swagger');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 7000;
 
 // Swagger configuration
 const swaggerSpec = generateSwaggerSpec(PORT);
@@ -17,8 +17,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Initialize WhatsApp client
 const client = new Client({
     authStrategy: new LocalAuth(),
-    // puppeteer: {
-    //     headless: true,
+    puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
     //     // Use system Chrome instead of downloading Chromium
     //     // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium'
     // }
