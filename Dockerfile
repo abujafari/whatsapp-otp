@@ -30,6 +30,8 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     libappindicator1 \
     xdg-utils \
+    curl \
+    chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
@@ -38,14 +40,19 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Set environment variables to skip Puppeteer Chromium download
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
 # Install dependencies
 RUN npm ci --only=production
 
 # Copy application code
 COPY . .
 
-# Create directory for WhatsApp session data
-RUN mkdir -p /app/.wwebjs_auth
+# Create directories for WhatsApp session data and cache
+RUN mkdir -p /app/.wwebjs_auth /app/.wwebjs_cache
 
 # Expose port
 EXPOSE 3000

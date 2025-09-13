@@ -9,14 +9,18 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - PUPPETEER_SKIP_DOWNLOAD=true
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
       # SOCKS5 Proxy Configuration (Optional)
       # - SOCKS5_HOST=127.0.0.1
       # - SOCKS5_PORT=1080
       # - SOCKS5_USERNAME=your_username
       # - SOCKS5_PASSWORD=your_password
     volumes:
-      # Persist WhatsApp session data
+      # Persist WhatsApp session data and cache
       - whatsapp-session:/app/.wwebjs_auth
+      - whatsapp-cache:/app/.wwebjs_cache
       # Optional: Mount custom config
       # - ./config:/app/config
     restart: unless-stopped
@@ -50,6 +54,8 @@ services:
 
 volumes:
   whatsapp-session:
+    driver: local
+  whatsapp-cache:
     driver: local
 
 networks:

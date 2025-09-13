@@ -62,7 +62,10 @@ docker build -t whatsapp-otp-api .
 
 **Run the container**:
 ```bash
-docker run -p 3000:3000 -v whatsapp-session:/app/.wwebjs_auth whatsapp-otp-api
+docker run -p 3000:3000 \
+  -v whatsapp-session:/app/.wwebjs_auth \
+  -v whatsapp-cache:/app/.wwebjs_cache \
+  whatsapp-otp-api
 ```
 
 **Run with environment variables**:
@@ -71,6 +74,7 @@ docker run -p 3000:3000 \
   -e SOCKS5_HOST=127.0.0.1 \
   -e SOCKS5_PORT=1080 \
   -v whatsapp-session:/app/.wwebjs_auth \
+  -v whatsapp-cache:/app/.wwebjs_cache \
   whatsapp-otp-api
 ```
 
@@ -162,10 +166,11 @@ The API includes comprehensive Swagger/OpenAPI documentation:
 
 - **Multi-stage build**: Optimized Docker image with minimal dependencies
 - **Health checks**: Built-in health monitoring for container orchestration
-- **Volume persistence**: WhatsApp session data persists between container restarts
+- **Volume persistence**: WhatsApp session data and cache persist between container restarts
 - **Environment variables**: Easy configuration via environment variables
 - **Reverse proxy**: Optional Nginx configuration for production deployments
 - **Security**: Non-root user and security headers included
+- **Puppeteer optimization**: Uses system Chromium instead of downloading, avoiding 403 errors
 
 ## Notes
 
@@ -175,4 +180,5 @@ The API includes comprehensive Swagger/OpenAPI documentation:
 - Server runs on port 3000 by default (configurable via PORT environment variable)
 - Swagger documentation is available at `/api-docs` endpoint
 - Docker containers include all necessary system dependencies for WhatsApp Web
-- Session data is persisted using Docker volumes
+- Session data and cache are persisted using Docker volumes
+- Both `.wwebjs_auth` and `.wwebjs_cache` directories are mounted as persistent volumes
